@@ -1,0 +1,182 @@
+---
+title: "Entrega Final"
+nombre del grupo: "Los Cositos"
+date: "2023-07-12"
+
+Jefe de práctica: "Gabriel Ramos"
+Profesor: "José Magallanes"
+Curso: "Estística para el Análisis Político 2"
+output: 
+  rmdformats::downcute
+---
+
+# Objetivo del Reporte
+
+En el presente trabajo buscamos explicar el nivel de democracia, para la cual usamos de referencia el Índice de Democracia de la Unidad de Inteligencia de The Economist del 2019. Este índice fue creado en función de las siguientes variables: Proceso electoral y pluralismo, Funcionamiento del Gobierno, Participación política, Cultura política y Derechos civiles. Sin embargo, nuestro objetivo es encontrar nuevas variables que puedan explicar el nivel de democracia de los países. Para ello usaremos la técnica de regresión lineal y poder encontrar un modelo que explique dicha relación. Asimismo,buscaremos encontrar un o más factores que reduzcan nuestras variables y poder encontrar un concepto que explique el nivel de democracia de los países.
+
+
+# Construcción de base de datos
+
+Al comenzar el trabajo, nos basamos en el Índice de Democracia de la Unidad de Inteligencia de The Economist del 2020. Sin embargo, este año no fue la mejor opción, pues evaluando la data que teniamos en las otras variables, nos dimos cuenta que tendríamos pocos valores.
+
+Nuestras variables independientes eran:
+-   Porcentaje de acceso a internet (INT)
+-   Tasa de Alfabetización (ALF)
+-   Cantidad de Personal de Fuerzas Armadas (PFA)
+-   Porcentaje Mujeres en el Parlamento Nacional (PMPN)
+-   Nivel de desigualdad salarial (GINI) 
+-   Superficie en kilómetros cuadrados (SUP)
+-   Libertad de Prensa (RSF)
+-   Desarrollo Económico (PBI) 
+-   Porcentaje de Población Urbana (PURB) 
+
+La data de las variables INT, ALF, PFA, GINI, SUP, PBI, PURB las obtuvimos del Banco Mundial y en su mayoria usamos la información del año 2019. Cabe resaltar que para la variable GINI tuvimos que usar un rango de 10 años (2009-2019) para evitar perder muchos varoles, es así que usamos la data del último año más cercano a 2019. Este arreglo es estructural y la variable no cambia tanto durante una decada.
+
+
+```{r}
+library(rio)
+data=import("dataTG.rda")
+str(data)
+```
+
+# Modelo de Regresión
+
+Luego de probar con diferentes modelos encontramos que el mejor modelo está conformado por las variables Libertad de prensa (RSF) y Tasa de alfabetización (ALF).
+
+
+```{r}
+data=data[complete.cases(data),]
+```
+
+
+<span style = 'color : #8968CD;'>**Modelo elegido: DEMO ~ RSF + ALF**</span>
+
+
+```{r}
+modelo <-lm(DEMO~ RSF + ALF, data)
+summary(modelo)
+```
+
+*$DEMO = -4.621 + 0.098 \cdot RSF + 0.043 \cdot ALF$*
+
+En este modelo las 2 varibles independientes generan un efecto significativo en la variable dependiente. Además, tiene un R cuadrado ajustado de (0.639) lo  cual nos indica la cercania a la situación perfecta (que es 1). En otras palabras, el modelo explica al 63.9% la variable dependiente (nivel de democracia).
+
+En conclusión, el modelo nos indica que el nivel de democracia incrementa en 0.098 cada que la libertad de prensa aumenta en una unidad y que el nivel de democracia incrementa en 0.043 cada que la tasa de alfabetismo aumenta en una unidad. De esto podemos entender que los países que tengan mayor libertad de opinión y una mejor educación (al menos tener mayor población alfabetizada) poseerán mayor nivel de democracia.
+
+# Análisis Factorial Exploratorio
+
+En este trabajo utilizaremos el análisis exploratorio dado que buscamos indagar qué tipo de factores -agrupaciones de variables- pueden explicar mejor el nivel de democracia. El objetivo principal es reducir nuestro número de variables independientes inicial por uno o más factores que las agrupen y expliquen el fenómeno de mejor manera.
+
+```{r}
+library(rio)
+data=import("dataTG.rda")
+str(data)
+```
+
+```{r}
+data$SJE=as.numeric(data$SJE)
+data$PARLAMENTO=as.numeric(data$PARLAMENTO)
+
+str(data$SJE)
+str(data$PARLAMENTO)
+```
+
+```{r}
+data=data[complete.cases(data),]
+```
+
+Luego de identificar a las variables no significativas (SJE, PARLAMENTO, PMPN y GINI) exploramos los facotres resultantes.
+
+```{r}
+dontselect=c("country","DEMO", "SJE", "PARLAMENTO", "PMPN","GINI")
+select=setdiff(names(data),dontselect) 
+data2=data[,select]
+```
+
+```{r}
+library(polycor)
+corMatrix2=polycor::hetcor(data2)$correlations
+```
+
+```{r}
+library(ggcorrplot)
+
+ggcorrplot(corMatrix2)
+```
+
+```{r}
+library(psych)
+psych::KMO(corMatrix2)
+```
+
+```{r, echo=TRUE, eval=TRUE,warning=FALSE, message=FALSE}
+fa.parallel(data2, fa = 'fa',correct = T,plot = F)
+```
+
+```{r, echo=TRUE, eval=TRUE,warning=FALSE, message=FALSE}
+library(GPArotation)
+resfa2 <- fa(data2,
+            nfactors = 2,
+            cor = 'mixed',
+            rotate = "varimax",
+            fm="minres")
+print(resfa2$loadings)
+```
+
+```{r}
+print(resfa2$loadings,cutoff = 0.5)
+```
+
+```{r}
+fa.diagram(resfa2,main = "Resultados del EFA")
+```
+
+<span style = 'color : #008B8B;'>**INTERPRETACIÓN**</span> 
+
+Sobre el **MR1**, observamos que se reúnen las variables Acceso a internet, Porcentaje de Población Urbana y Alfabetización. Estas variables son compatibles con la **teoría de la modernización**, que proponen la modernización de un territorio (industrialización, urbanización, educación) conducen al desarrollo democrático. Así, este factor (MR1) podría explicarse desde esta teoría.
+
+El **MR2** es más complejo de definir. Las variables reunidas -Cantidad de FF. AA., PBI, Superficie del Estado y Libertad de Prensa- parecen dispares. Las primeras tres podrían referir a las condiciones básicas de un Estado: Ejército, territorio y PBI. También creemos que puede tener que ver con la dominación del Estado. En ese sentido, podría tener que ver con **la cantidad de Hard Power** de un país, el cual hace referencia principalmente a los recursos militares y económicos. 
+
+Según Joseph Nye, el Hard Power implica «la capacidad de usar palos y zanahorias de poder económico y militar para que otros acaten tu voluntad». Las zanahorias hacen referenica a incentivos como la reducción de las barreras comerciales, la oferta de alianzas o la promesa de protección militar. Por otro lado, los palos representan amenazas como el uso de diplomacia coercitiva, la amenaza de intervención militar o la implementación de sanciones económicas.
+Esto explicaría por qué la cuarta variable - Libertad de prensa- es inversamente proporcional con el resto. 
+
+
+```{r}
+library(magrittr)
+as.data.frame(resfa2$scores)%>%head()
+```
+
+-   Al MRI, al ser comaptible con la Teoría de la Modernización, podriamos ponerle nombre de Nivel de modernización de un país.
+
+-   El MR2, al acercarse más a la definición de Hard Power, podríamos ponerle el nombre de Nivel de poder duro de un país.
+
+
+```{r}
+data$modern_efa=resfa2$scores[,1]
+data$hpower_efa=resfa2$scores[,2]
+```
+
+**Nivel de modernización**
+
+```{r}
+summary(data$modern_efa)
+```
+
+Notamos que el nivel máximo es de 1.86 y el mínimo es de -2.03. Además, la media es 0 y la mediana 0.24. Es decir, hay un sesgo hacia la izquierda (asimétrica hacia la izquierda) lo que nos llevaría a pensar que hay un poco más de países que tienen un nivel alto de modernización.
+
+**Nivel de poder duro**
+
+```{r}
+summary(data$hpower_efa)
+```
+
+Notamos que el nivel máximo es de 6.45 y el mínimo es de -0.62. Además, la media es 0 y la mediana -0.38. Es decir, hay una sesgo hacia la derecha (asimétrica hacia la derecha) lo que nos llevaría a pensar que hay mayor cantidad de países que tienen un nivel bajo de poder duro.
+
+
+En conclusión, hemos encontrado que dos factores podrían influir en el nivel de democracia:
+
+-   El primer factor (MR1) es el Nivel de modernización del país. Debido a la relación que tienen las varibales (INT, PURB, ALF) con la teoría de la modernización.
+
+-   El segundo factor (MR2) es el Nivel de poder duro de un país. Debido a la cercanía que tienen la relación de las variables (PFA, PBI, SUP, RSF) con el concepto de Hard Power.
+
+
